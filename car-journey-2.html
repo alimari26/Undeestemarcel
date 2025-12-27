@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Journey Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .timer {
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .counter {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .counter-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .counter-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ef4444;
+        }
+
+        #map {
+            height: 400px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        #callBtn {
+            background: #10b981;
+        }
+
+        #callBtn:hover {
+            background: #059669;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+
+        .status.arrived {
+            color: #10b981;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .car-marker {
+            font-size: 30px;
+            transform: translate(-50%, -50%);
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .police-car {
+            width: 50px;
+            height: 30px;
+            position: relative;
+        }
+
+        .police-car-body {
+            width: 50px;
+            height: 20px;
+            background: white;
+            border: 3px solid #1e40af;
+            border-radius: 6px;
+            position: absolute;
+            bottom: 0;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+
+        .police-car-top {
+            width: 30px;
+            height: 12px;
+            background: white;
+            border: 3px solid #1e40af;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            position: absolute;
+            top: 0;
+            left: 10px;
+        }
+
+        .police-car-lights {
+            position: absolute;
+            top: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 6px;
+            background: linear-gradient(90deg, #ef4444 0%, #ef4444 50%, #3b82f6 50%, #3b82f6 100%);
+            border-radius: 2px;
+            animation: flash 0.8s infinite;
+        }
+
+        @keyframes flash {
+            0%, 49% { opacity: 1; }
+            50%, 99% { opacity: 0.4; }
+        }
+
+        .police-car-stripe {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: #1e40af;
+            transform: translateY(-50%);
+        }
+
+        .police-car-wheel {
+            width: 8px;
+            height: 8px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -4px;
+        }
+
+        .police-car-wheel.left {
+            left: 6px;
+        }
+
+        .police-car-wheel.right {
+            right: 6px;
+        }
+
+        .destination-marker {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .destination-label {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            margin-bottom: 2px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #333;
+        }
+
+        .destination-pin {
+            font-size: 40px;
+            line-height: 1;
+            display: block;
+        }
+
+        /* Mobile styles - require scrolling to see buttons */
+        @media (max-width: 768px) {
+            body {
+                align-items: flex-start;
+                padding: 10px;
+            }
+
+            .container {
+                margin-top: 10px;
+            }
+
+            #map {
+                height: 75vh;
+                margin-bottom: 20px;
+            }
+
+            .timer {
+                font-size: 36px;
+                margin-bottom: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Unde este Dl. Marcel?</h1>
+        <div class="timer" id="timer">10:00</div>
+        <div id="map"></div>
+        <div class="counter">
+            <div class="counter-label">Cati copii a luat deja?</div>
+            <div class="counter-number" id="childCounter">0</div>
+        </div>
+        <div class="controls">
+            <button id="startBtn">Start Journey</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div class="controls" style="margin-top: 10px;">
+            <button id="callBtn">📞 Suna pe Dl. Marcel</button>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const JOURNEY_DURATION = 600; // 10 minutes in seconds
+
+        // Route coordinates (Bucharest)
+        // Multiple possible starting points around Bucharest
+        const possibleStartPoints = [
+            [44.4268, 26.0965], // City center (near University Square)
+            [44.4478, 26.0979], // North (near Piata Victoriei)
+            [44.4721, 26.0822], // North (Herastrau Park area)
+            [44.4358, 26.1028], // East (near Obor)
+            [44.4102, 26.1201], // Southeast
+            [44.4015, 26.0889], // South (near Tineretului Park)
+            [44.4398, 26.0476], // West (near Politehnica)
+            [44.4558, 26.1122]  // Northeast (near Floreasca)
+        ];
+
+        // Randomly select a starting point
+        const randomStartIndex = Math.floor(Math.random() * possibleStartPoints.length);
+        const startCoords = possibleStartPoints[randomStartIndex];
+        const endCoords = [44.3850, 26.1050];   // Strada Odei (south Bucharest)
+
+        let startTime = null;
+        let animationFrame = null;
+        let isRunning = false;
+        let map, carMarker, routeLine;
+
+        const timerDisplay = document.getElementById('timer');
+        const childCounter = document.getElementById('childCounter');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const callBtn = document.getElementById('callBtn');
+        const status = document.getElementById('status');
+
+        // Set random number of children (1-300)
+        const randomChildren = Math.floor(Math.random() * 300) + 1;
+        childCounter.textContent = randomChildren;
+
+        // Initialize map
+        map = L.map('map', {
+            zoomControl: true,
+            scrollWheelZoom: true,
+            dragging: true,
+            touchZoom: true
+        }).setView(startCoords, 13);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Fetch actual route from OSRM with alternatives
+        let routeCoordinates = [startCoords, endCoords]; // Fallback to straight line
+
+        fetch(`https://router.project-osrm.org/route/v1/driving/${startCoords[1]},${startCoords[0]};${endCoords[1]},${endCoords[0]}?overview=full&geometries=geojson&alternatives=true`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    // Randomly select one of the available routes
+                    const randomRouteIndex = Math.floor(Math.random() * data.routes.length);
+                    const selectedRoute = data.routes[randomRouteIndex];
+
+                    // Convert coordinates from [lng, lat] to [lat, lng] for Leaflet
+                    routeCoordinates = selectedRoute.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                    // Remove old route line if exists
+                    if (routeLine) {
+                        map.removeLayer(routeLine);
+                    }
+
+                    // Create new route line with actual road path
+                    routeLine = L.polyline(routeCoordinates, {
+                        color: '#4285F4',
+                        weight: 4,
+                        opacity: 0.7
+                    }).addTo(map);
+
+                    // Fit map to show entire route
+                    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+                }
+            })
+            .catch(error => {
+                console.log('Route fetching failed, using straight line:', error);
+                // Create fallback route line
+                routeLine = L.polyline([startCoords, endCoords], {
+                    color: '#4285F4',
+                    weight: 4,
+                    opacity: 0.7
+                }).addTo(map);
+
+                map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            });
+
+        // Add end marker with label (no start marker)
+        const endIcon = L.divIcon({
+            html: '<div class="destination-marker"><div class="destination-label">Casa Miei</div><div class="destination-pin">📍</div></div>',
+            className: '',
+            iconSize: [80, 75],
+            iconAnchor: [40, 70]
+        });
+        L.marker(endCoords, { icon: endIcon }).addTo(map)
+            .bindPopup('<b>Casa Miei</b><br>Strada Odei');
+
+        // Create police car marker
+        const carIcon = L.divIcon({
+            html: '<div class="police-car"><div class="police-car-top"><div class="police-car-lights"></div></div><div class="police-car-body"><div class="police-car-stripe"></div></div><div class="police-car-wheel left"></div><div class="police-car-wheel right"></div></div>',
+            className: '',
+            iconSize: [50, 30],
+            iconAnchor: [25, 15]
+        });
+        carMarker = L.marker(startCoords, {
+            icon: carIcon,
+            zIndexOffset: 1000
+        }).addTo(map);
+
+        function interpolatePosition(start, end, progress) {
+            // If we have route coordinates, follow the actual path
+            if (routeCoordinates.length > 2) {
+                const totalPoints = routeCoordinates.length;
+                const targetIndex = Math.min(Math.floor(progress * totalPoints), totalPoints - 1);
+                return routeCoordinates[targetIndex];
+            }
+
+            // Fallback to straight line interpolation
+            const lat = start[0] + (end[0] - start[0]) * progress;
+            const lng = start[1] + (end[1] - start[1]) * progress;
+            return [lat, lng];
+        }
+
+        function updateTimer(elapsed) {
+            const remaining = Math.max(0, JOURNEY_DURATION - elapsed);
+            const minutes = Math.floor(remaining / 60);
+            const seconds = Math.floor(remaining % 60);
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function updateCarPosition(elapsed) {
+            const progress = Math.min(elapsed / JOURNEY_DURATION, 1);
+            const newPosition = interpolatePosition(startCoords, endCoords, progress);
+            carMarker.setLatLng(newPosition);
+        }
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = (timestamp - startTime) / 1000;
+
+            updateTimer(elapsed);
+            updateCarPosition(elapsed);
+
+            if (elapsed >= JOURNEY_DURATION) {
+                isRunning = false;
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Journey';
+                status.textContent = '🎉 A ajuns la Casa Miei!';
+                status.classList.add('arrived');
+                carMarker.bindPopup('<b>A ajuns!</b>').openPopup();
+                return;
+            }
+
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        function startJourney() {
+            if (isRunning) {
+                // Pause
+                isRunning = false;
+                cancelAnimationFrame(animationFrame);
+                startBtn.textContent = 'Resume';
+                status.textContent = 'Journey paused';
+            } else {
+                // Start or resume
+                isRunning = true;
+                startBtn.textContent = 'Pause';
+                status.textContent = 'Journey in progress...';
+                status.classList.remove('arrived');
+
+                if (startTime === null) {
+                    animationFrame = requestAnimationFrame(animate);
+                } else {
+                    const currentTime = performance.now();
+                    const elapsed = (currentTime - startTime) / 1000;
+                    startTime = currentTime - (elapsed * 1000);
+                    animationFrame = requestAnimationFrame(animate);
+                }
+            }
+        }
+
+        function resetJourney() {
+            isRunning = false;
+            cancelAnimationFrame(animationFrame);
+            startTime = null;
+
+            updateTimer(0);
+            carMarker.setLatLng(startCoords);
+            carMarker.closePopup();
+
+            startBtn.textContent = 'Start Journey';
+            startBtn.disabled = false;
+            callBtn.disabled = false;
+            callBtn.style.background = '';
+            status.textContent = '';
+            status.classList.remove('arrived');
+        }
+
+        function playCallingSound() {
+            // Create audio context
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const duration = 0.8;
+            const ringCount = 2;
+
+            for (let i = 0; i < ringCount; i++) {
+                const startTime = audioContext.currentTime + (i * 1.2);
+
+                // First beep (higher pitch)
+                const oscillator1 = audioContext.createOscillator();
+                const gainNode1 = audioContext.createGain();
+                oscillator1.connect(gainNode1);
+                gainNode1.connect(audioContext.destination);
+                oscillator1.frequency.value = 800;
+                oscillator1.type = 'sine';
+                gainNode1.gain.setValueAtTime(0.3, startTime);
+                gainNode1.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+                oscillator1.start(startTime);
+                oscillator1.stop(startTime + 0.3);
+
+                // Second beep (lower pitch)
+                const oscillator2 = audioContext.createOscillator();
+                const gainNode2 = audioContext.createGain();
+                oscillator2.connect(gainNode2);
+                gainNode2.connect(audioContext.destination);
+                oscillator2.frequency.value = 600;
+                oscillator2.type = 'sine';
+                gainNode2.gain.setValueAtTime(0.3, startTime + 0.35);
+                gainNode2.gain.exponentialRampToValueAtTime(0.01, startTime + 0.65);
+                oscillator2.start(startTime + 0.35);
+                oscillator2.stop(startTime + 0.65);
+            }
+        }
+
+        function callMrMarcel() {
+            // Only allow calling if journey has started and not yet arrived
+            if (startTime === null || !isRunning) {
+                return;
+            }
+
+            const currentTime = performance.now();
+            const currentElapsed = (currentTime - startTime) / 1000;
+
+            // Don't call if already arrived
+            if (currentElapsed >= JOURNEY_DURATION) {
+                return;
+            }
+
+            // Play calling sound
+            playCallingSound();
+
+            // Show calling animation
+            callBtn.disabled = true;
+            callBtn.style.background = '#10b981';
+            status.textContent = '📞 Calling Dl. Marcel...';
+
+            // Simulate ringing
+            setTimeout(() => {
+                status.textContent = '🚨 Dl. Marcel se grăbește!';
+
+                // Speed up by 1 minute (60 seconds)
+                const newElapsed = Math.min(currentElapsed + 60, JOURNEY_DURATION);
+                startTime = currentTime - (newElapsed * 1000);
+
+                // Update display immediately
+                updateTimer(newElapsed);
+                updateCarPosition(newElapsed);
+
+                // Flash the police lights faster (visual cue)
+                setTimeout(() => {
+                    status.textContent = 'Journey in progress... (RAPID!)';
+                    callBtn.disabled = false;
+                    callBtn.style.background = '';
+                }, 2000);
+
+                // Check if we've reached the destination
+                if (newElapsed >= JOURNEY_DURATION) {
+                    isRunning = false;
+                    cancelAnimationFrame(animationFrame);
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'Start Journey';
+                    status.textContent = '🎉 A ajuns la Casa Miei!';
+                    status.classList.add('arrived');
+                    carMarker.bindPopup('<b>A ajuns!</b>').openPopup();
+                }
+            }, 1500);
+        }
+
+        startBtn.addEventListener('click', startJourney);
+        resetBtn.addEventListener('click', resetJourney);
+        callBtn.addEventListener('click', callMrMarcel);
+
+        // Auto-start journey when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                startJourney();
+            }, 500); // Small delay to ensure map is fully loaded
+        });
+    </script>
+</body>
+</html>
